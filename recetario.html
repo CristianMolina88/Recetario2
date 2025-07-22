@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recetario</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    header { background: #f7d437; color:#333; padding: 10px 0; text-align:center; font-size:1.8rem; font-weight:bold; }
+    header i { margin-right: 8px; }
+    .card { margin-top:20px; border-radius:10px; }
+    .btn-success { background:#28a745; border:none; }
+    .btn-primary { background:#007bff; border:none; }
+    h5 { margin-top:20px; }
+    .table thead { background:#ffdd00; color:#000; }
+    .alert-success { color:#155724; background-color:#d4edda; border-color:#c3e6cb; }
+    .alert-info { color:#0c5460; background-color:#d1ecf1; border-color:#bee5eb; }
+  </style>
+</head>
+<body>
+  <header>📋 Recetario</header>
+  <div class="container">
+    <div class="card shadow-sm p-4">
+      <div class="mb-3">
+        <label for="receta" class="form-label"><b>Receta:</b></label>
+        <select id="receta" class="form-select">
+          <option value="">Seleccione una receta</option>
+          <option>CARNE DESMECHADA</option>
+          <option>ADOBO CARNE DESMECHADA</option>
+          <option>POLLO DESMECHADO</option>
+          <option>ADOBO POLLO DESMECHADO</option>
+          <option>CERDO DESMECHADO</option>
+          <option>ADOBO CERDO DESMECHADO</option>
+          <option>CARNE DE HAMBURGUESA</option>
+          <option>COSTILLA BBQ</option>
+          <option>ADOBO COSTILLAS</option>
+          <option>BARBECUE DE LA CASA</option>
+          <option>PIÑA EN CUADRITOS</option>
+          <option>SALSA DE PIÑA</option>
+          <option>SALSA VERDE</option>
+          <option>FRIJOL MONTAÑERO</option>
+          <option>GUISO AHOGADO</option>
+          <option>CARNE X 130 GR</option>
+          <option>CARNE X 180 GR</option>
+          <option>GUISO DE ROPA VIEJA</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="cantidad" class="form-label"><b>Cantidad principal:</b> <span id="unidad-label"></span></label>
+        <input type="number" id="cantidad" class="form-control">
+      </div>
+      <button id="calcular" class="btn btn-success w-100 mb-3">✅ Calcular</button>
+      <div id="estado"></div>
+      <h5>Resultados</h5>
+      <p><b>Cantidad esperada:</b> <span id="esperado"></span></p>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Insumo</th>
+            <th>Cantidad</th>
+            <th>Unidad</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-insumos"></tbody>
+      </table>
+      <button id="iniciar" class="btn btn-primary">🕑 Iniciar</button>
+    </div>
+  </div>
+
+  <script>
+    const url = 'https://script.google.com/macros/s/AKfycbweuQm-zSE7HS_-yWl1Opv0SbDklDOkza9QhqrdJLznmsr1BJCe2rK262xH_GdaJoZTWg/exec'; // reemplaza con la URL de tu WebApp publicada
+
+    const recetaSelect = document.getElementById('receta');
+    const unidadLabel = document.getElementById('unidad-label');
+    const cantidadInput = document.getElementById('cantidad');
+    const calcularBtn = document.getElementById('calcular');
+    const iniciarBtn = document.getElementById('iniciar');
+    const estadoDiv = document.getElementById('estado');
+    const esperadoSpan = document.getElementById('esperado');
+    const tablaInsumos = document.getElementById('tabla-insumos');
+
+    // Al cambiar la receta, obtener insumo principal y unidad
+    recetaSelect.addEventListener('change', async () => {
+      const receta = recetaSelect.value;
+      unidadLabel.textContent = '';
+      if (!receta) return;
+      estadoDiv.innerHTML = `<div class="alert alert-info">Obteniendo insumo principal...</div>`;
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          body: new URLSearchParams({ accion: 'infoPrincipal', receta })
+        });
+        const data = await resp.json();
+        if (data.error) {
+          estadoDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        } else {
+          unidadLabel.textContent = `${data.insumoPrincipal} (${data.unidadPrincipal})`;
+          estadoDiv.innerHTML = '';
+        }
+      } catch (err) {
+        estadoDiv.innerHTML = `<div class="alert alert-danger">Error al obtener insumo principal</div>`;
+      }
+    });
+
+    calcularBtn.addEventListener('click', async () => {
+      const receta = recetaSelect.value;
+      const cantidad = cantidadInput.value;
+      if (!receta || !cantidad) {
+        alert('Seleccione una receta y cantidad');
+        return;
+      }
+      estadoDiv.innerHTML = `<div class="alert alert-info">Calculando...</div>`;
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          body: new URLSearchParams({ accion: 'calcular', receta, cantidad })
+        });
+        const data = await resp.json();
+        if (data.error) {
+          estadoDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+          return;
+        }
+        estadoDiv.innerHTML = `<div class="alert alert-success">✅ Receta: ${data.receta} calculada.</div>`;
+        esperadoSpan.textContent = `${data.esperado.toFixed(2)} PAQUETES`;
+        tablaInsumos.innerHTML = '';
+        data.insumos.forEach(ins => {
+          tablaInsumos.innerHTML += `
+            <tr>
+              <td>${ins.insumo}</td>
+              <td>${Number(ins.cantidad).toFixed(2)}</td>
+              <td>${ins.unidad}</td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        estadoDiv.innerHTML = `<div class="alert alert-danger">Error al calcular</div>`;
+      }
+    });
+
+    iniciarBtn.addEventListener('click', async () => {
+      const receta = recetaSelect.value;
+      if (!receta) {
+        alert('Seleccione una receta');
+        return;
+      }
+      estadoDiv.innerHTML = `<div class="alert alert-info">Iniciando...</div>`;
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          body: new URLSearchParams({ accion: 'iniciar', receta })
+        });
+        const data = await resp.json();
+        if (data.error) {
+          estadoDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        } else {
+          estadoDiv.innerHTML = `<div class="alert alert-success">🕑 Hora de inicio registrada para ${data.receta}: ${data.hora}</div>`;
+        }
+      } catch (err) {
+        estadoDiv.innerHTML = `<div class="alert alert-danger">Error al iniciar</div>`;
+      }
+    });
+  </script>
+</body>
+</html>
